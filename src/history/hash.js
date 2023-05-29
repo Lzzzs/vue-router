@@ -32,6 +32,7 @@ export class HashHistory extends History {
       this.listeners.push(setupScroll())
     }
 
+    // 监听回退的函数
     const handleRoutingEvent = () => {
       const current = this.current
       if (!ensureSlash()) {
@@ -46,11 +47,10 @@ export class HashHistory extends History {
         }
       })
     }
+
+    // 设置监听器，这里是监听回退
     const eventType = supportsPushState ? 'popstate' : 'hashchange'
-    window.addEventListener(
-      eventType,
-      handleRoutingEvent
-    )
+    window.addEventListener(eventType, handleRoutingEvent)
     this.listeners.push(() => {
       window.removeEventListener(eventType, handleRoutingEvent)
     })

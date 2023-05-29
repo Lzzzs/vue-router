@@ -39,7 +39,10 @@ export default class VueRouter {
 
   constructor (options: RouterOptions = {}) {
     if (process.env.NODE_ENV !== 'production') {
-      warn(this instanceof VueRouter, `Router must be called with the new operator.`)
+      warn(
+        this instanceof VueRouter,
+        `Router must be called with the new operator.`
+      )
     }
     this.app = null
     this.apps = []
@@ -49,6 +52,7 @@ export default class VueRouter {
     this.afterHooks = []
     this.matcher = createMatcher(options.routes || [], this)
 
+    // 不指定mode 默认是hash模式
     let mode = options.mode || 'hash'
     this.fallback =
       mode === 'history' && !supportsPushState && options.fallback !== false
@@ -128,10 +132,13 @@ export default class VueRouter {
           handleScroll(this, routeOrError, from, false)
         }
       }
+      // transitionTo成功或者失败的回调
       const setupListeners = routeOrError => {
+        // 设置监听器
         history.setupListeners()
         handleInitialScroll(routeOrError)
       }
+      // 切换路径
       history.transitionTo(
         history.getCurrentLocation(),
         setupListeners,
@@ -141,6 +148,7 @@ export default class VueRouter {
 
     history.listen(route => {
       this.apps.forEach(app => {
+        // 这里修改会触发set 导致页面更新
         app._route = route
       })
     })
@@ -260,7 +268,10 @@ export default class VueRouter {
 
   addRoutes (routes: Array<RouteConfig>) {
     if (process.env.NODE_ENV !== 'production') {
-      warn(false, 'router.addRoutes() is deprecated and has been removed in Vue Router 4. Use router.addRoute() instead.')
+      warn(
+        false,
+        'router.addRoutes() is deprecated and has been removed in Vue Router 4. Use router.addRoute() instead.'
+      )
     }
     this.matcher.addRoutes(routes)
     if (this.history.current !== START) {

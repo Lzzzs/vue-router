@@ -1,6 +1,6 @@
 /*!
   * vue-router v3.6.5
-  * (c) 2022 Evan You
+  * (c) 2023 Evan You
   * @license MIT
   */
 (function (global, factory) {
@@ -1281,52 +1281,69 @@
 
   var _Vue;
 
-  function install (Vue) {
+  function install(Vue) {
     if (install.installed && _Vue === Vue) { return }
     install.installed = true;
-
+    debugger
     _Vue = Vue;
 
     var isDef = function (v) { return v !== undefined; };
 
     var registerInstance = function (vm, callVal) {
       var i = vm.$options._parentVnode;
-      if (isDef(i) && isDef(i = i.data) && isDef(i = i.registerRouteInstance)) {
+      if (
+        isDef(i) &&
+        isDef((i = i.data)) &&
+        isDef((i = i.registerRouteInstance))
+      ) {
         i(vm, callVal);
       }
     };
 
+    // 向根Vue混入beforeCreate和destroyed
     Vue.mixin({
-      beforeCreate: function beforeCreate () {
+      beforeCreate: function beforeCreate() {
+        // 判断new Vue的时候有没有传router这个参数
         if (isDef(this.$options.router)) {
           this._routerRoot = this;
           this._router = this.$options.router;
           this._router.init(this);
+
+          // 将this._route 设置为响应式数据，这也是为什么改变路径页面可以重新渲染的原因
           Vue.util.defineReactive(this, '_route', this._router.history.current);
         } else {
           this._routerRoot = (this.$parent && this.$parent._routerRoot) || this;
         }
         registerInstance(this, this);
       },
-      destroyed: function destroyed () {
+      destroyed: function destroyed() {
         registerInstance(this);
       }
     });
 
+    // 访问Vue.prototype.$router 其实是访问 this._routerRoot._router
     Object.defineProperty(Vue.prototype, '$router', {
-      get: function get () { return this._routerRoot._router }
+      get: function get() {
+        return this._routerRoot._router
+      }
     });
 
+    // 访问Vue.prototype.$route 其实是访问 this._routerRoot._route
     Object.defineProperty(Vue.prototype, '$route', {
-      get: function get () { return this._routerRoot._route }
+      get: function get() {
+        return this._routerRoot._route
+      }
     });
 
+    // 注册RouterView和RouterLink 两个全局组件
     Vue.component('RouterView', View);
     Vue.component('RouterLink', Link);
 
+    // 对于beforeRouteEnter beforeRouteLeave beforeRouteUpdate 这三个router hook都使用与created相同的合并策略
     var strats = Vue.config.optionMergeStrategies;
     // use the same hook merging strategy for route hooks
-    strats.beforeRouteEnter = strats.beforeRouteLeave = strats.beforeRouteUpdate = strats.created;
+    strats.beforeRouteEnter = strats.beforeRouteLeave = strats.beforeRouteUpdate =
+      strats.created;
   }
 
   /*  */
@@ -1549,7 +1566,7 @@
 
 
 
-  function createMatcher (
+  function createMatcher(
     routes,
     router
   ) {
@@ -1558,12 +1575,13 @@
     var pathMap = ref.pathMap;
     var nameMap = ref.nameMap;
 
-    function addRoutes (routes) {
+    function addRoutes(routes) {
       createRouteMap(routes, pathList, pathMap, nameMap);
     }
 
-    function addRoute (parentOrRoute, route) {
-      var parent = (typeof parentOrRoute !== 'object') ? nameMap[parentOrRoute] : undefined;
+    function addRoute(parentOrRoute, route) {
+      var parent =
+        typeof parentOrRoute !== 'object' ? nameMap[parentOrRoute] : undefined;
       // $flow-disable-line
       createRouteMap([route || parentOrRoute], pathList, pathMap, nameMap, parent);
 
@@ -1580,11 +1598,11 @@
       }
     }
 
-    function getRoutes () {
+    function getRoutes() {
       return pathList.map(function (path) { return pathMap[path]; })
     }
 
-    function match (
+    function match(
       raw,
       currentRoute,
       redirectedFrom
@@ -1592,6 +1610,7 @@
       var location = normalizeLocation(raw, currentRoute, false, router);
       var name = location.name;
 
+      // 定义了name
       if (name) {
         var record = nameMap[name];
         {
@@ -1614,13 +1633,21 @@
           }
         }
 
-        location.path = fillParams(record.path, location.params, ("named route \"" + name + "\""));
+        location.path = fillParams(
+          record.path,
+          location.params,
+          ("named route \"" + name + "\"")
+        );
         return _createRoute(record, location, redirectedFrom)
       } else if (location.path) {
+        // 定义了path
         location.params = {};
+
+        // 遍历所有的path
         for (var i = 0; i < pathList.length; i++) {
           var path = pathList[i];
           var record$1 = pathMap[path];
+          // 将location中的path与params和record中的正则进行匹配
           if (matchRoute(record$1.regex, location.path, location.params)) {
             return _createRoute(record$1, location, redirectedFrom)
           }
@@ -1630,14 +1657,12 @@
       return _createRoute(null, location)
     }
 
-    function redirect (
-      record,
-      location
-    ) {
+    function redirect(record, location) {
       var originalRedirect = record.redirect;
-      var redirect = typeof originalRedirect === 'function'
-        ? originalRedirect(createRoute(record, location, null, router))
-        : originalRedirect;
+      var redirect =
+        typeof originalRedirect === 'function'
+          ? originalRedirect(createRoute(record, location, null, router))
+          : originalRedirect;
 
       if (typeof redirect === 'string') {
         redirect = { path: redirect };
@@ -1645,9 +1670,7 @@
 
       if (!redirect || typeof redirect !== 'object') {
         {
-          warn(
-            false, ("invalid redirect option: " + (JSON.stringify(redirect)))
-          );
+          warn(false, ("invalid redirect option: " + (JSON.stringify(redirect))));
         }
         return _createRoute(null, location)
       }
@@ -1666,27 +1689,42 @@
         // resolved named direct
         var targetRecord = nameMap[name];
         {
-          assert(targetRecord, ("redirect failed: named route \"" + name + "\" not found."));
+          assert(
+            targetRecord,
+            ("redirect failed: named route \"" + name + "\" not found.")
+          );
         }
-        return match({
-          _normalized: true,
-          name: name,
-          query: query,
-          hash: hash,
-          params: params
-        }, undefined, location)
+        return match(
+          {
+            _normalized: true,
+            name: name,
+            query: query,
+            hash: hash,
+            params: params
+          },
+          undefined,
+          location
+        )
       } else if (path) {
         // 1. resolve relative redirect
         var rawPath = resolveRecordPath(path, record);
         // 2. resolve params
-        var resolvedPath = fillParams(rawPath, params, ("redirect route with path \"" + rawPath + "\""));
+        var resolvedPath = fillParams(
+          rawPath,
+          params,
+          ("redirect route with path \"" + rawPath + "\"")
+        );
         // 3. rematch with existing query and hash
-        return match({
-          _normalized: true,
-          path: resolvedPath,
-          query: query,
-          hash: hash
-        }, undefined, location)
+        return match(
+          {
+            _normalized: true,
+            path: resolvedPath,
+            query: query,
+            hash: hash
+          },
+          undefined,
+          location
+        )
       } else {
         {
           warn(false, ("invalid redirect option: " + (JSON.stringify(redirect))));
@@ -1695,12 +1733,16 @@
       }
     }
 
-    function alias (
+    function alias(
       record,
       location,
       matchAs
     ) {
-      var aliasedPath = fillParams(matchAs, location.params, ("aliased route with path \"" + matchAs + "\""));
+      var aliasedPath = fillParams(
+        matchAs,
+        location.params,
+        ("aliased route with path \"" + matchAs + "\"")
+      );
       var aliasedMatch = match({
         _normalized: true,
         path: aliasedPath
@@ -1714,7 +1756,7 @@
       return _createRoute(null, location)
     }
 
-    function _createRoute (
+    function _createRoute(
       record,
       location,
       redirectedFrom
@@ -1736,11 +1778,7 @@
     }
   }
 
-  function matchRoute (
-    regex,
-    path,
-    params
-  ) {
+  function matchRoute(regex, path, params) {
     var m = path.match(regex);
 
     if (!m) {
@@ -1753,14 +1791,15 @@
       var key = regex.keys[i - 1];
       if (key) {
         // Fix #1994: using * with props: true generates a param named 0
-        params[key.name || 'pathMatch'] = typeof m[i] === 'string' ? decode(m[i]) : m[i];
+        params[key.name || 'pathMatch'] =
+          typeof m[i] === 'string' ? decode(m[i]) : m[i];
       }
     }
 
     return true
   }
 
-  function resolveRecordPath (path, record) {
+  function resolveRecordPath(path, record) {
     return resolvePath(path, record.parent ? record.parent.path : '/', true)
   }
 
@@ -2212,7 +2251,7 @@
 
   /*  */
 
-  var History = function History (router, base) {
+  var History = function History(router, base) {
     this.router = router;
     this.base = normalizeBase(base);
     // start with a route object that stands for "nowhere"
@@ -2290,7 +2329,10 @@
           // because it's triggered by the redirection instead
           // https://github.com/vuejs/vue-router/issues/3225
           // https://github.com/vuejs/vue-router/issues/3331
-          if (!isNavigationFailure(err, NavigationFailureType.redirected) || prev !== START) {
+          if (
+            !isNavigationFailure(err, NavigationFailureType.redirected) ||
+            prev !== START
+          ) {
             this$1$1.ready = true;
             this$1$1.readyErrorCbs.forEach(function (cb) {
               cb(err);
@@ -2306,6 +2348,7 @@
 
     var current = this.current;
     this.pending = route;
+    debugger
     var abort = function (err) {
       // changed after adding errors with
       // https://github.com/vuejs/vue-router/pull/3047 before that change,
@@ -2394,7 +2437,18 @@
         abort(e);
       }
     };
-
+    // 1.导航被触发。
+    // 2.在失活的组件里调用 beforeRouteLeave 守卫。
+    // 3.调用全局的 beforeEach 守卫。
+    // 4.在重用的组件里调用 beforeRouteUpdate 守卫 (2.2+)。
+    // 5.在路由配置里调用 beforeEnter。
+    // 6.解析异步路由组件。
+    // 7.在被激活的组件里调用 beforeRouteEnter。
+    // 8.调用全局的 beforeResolve 守卫 (2.5+)。
+    // 9.导航被确认。
+    // 10.调用全局的 afterEach 钩子。
+    // 11.触发 DOM 更新。
+    // 12.调用 beforeRouteEnter 守卫中传给 next 的回调函数，创建好的组件实例会作为回调函数的参数传入。
     runQueue(queue, iterator, function () {
       // wait until async components are resolved before
       // extracting in-component enter guards
@@ -2438,7 +2492,7 @@
     this.pending = null;
   };
 
-  function normalizeBase (base) {
+  function normalizeBase(base) {
     if (!base) {
       if (inBrowser) {
         // respect <base> tag
@@ -2458,7 +2512,7 @@
     return base.replace(/\/$/, '')
   }
 
-  function resolveQueue (
+  function resolveQueue(
     current,
     next
   ) {
@@ -2476,7 +2530,7 @@
     }
   }
 
-  function extractGuards (
+  function extractGuards(
     records,
     name,
     bind,
@@ -2493,7 +2547,7 @@
     return flatten(reverse ? guards.reverse() : guards)
   }
 
-  function extractGuard (
+  function extractGuard(
     def,
     key
   ) {
@@ -2504,25 +2558,23 @@
     return def.options[key]
   }
 
-  function extractLeaveGuards (deactivated) {
+  function extractLeaveGuards(deactivated) {
     return extractGuards(deactivated, 'beforeRouteLeave', bindGuard, true)
   }
 
-  function extractUpdateHooks (updated) {
+  function extractUpdateHooks(updated) {
     return extractGuards(updated, 'beforeRouteUpdate', bindGuard)
   }
 
-  function bindGuard (guard, instance) {
+  function bindGuard(guard, instance) {
     if (instance) {
-      return function boundRouteGuard () {
+      return function boundRouteGuard() {
         return guard.apply(instance, arguments)
       }
     }
   }
 
-  function extractEnterGuards (
-    activated
-  ) {
+  function extractEnterGuards(activated) {
     return extractGuards(
       activated,
       'beforeRouteEnter',
@@ -2532,12 +2584,12 @@
     )
   }
 
-  function bindEnterGuard (
+  function bindEnterGuard(
     guard,
     match,
     key
   ) {
-    return function routeEnterGuard (to, from, next) {
+    return function routeEnterGuard(to, from, next) {
       return guard(to, from, function (cb) {
         if (typeof cb === 'function') {
           if (!match.enteredCbs[key]) {
@@ -2659,7 +2711,7 @@
   /*  */
 
   var HashHistory = /*@__PURE__*/(function (History) {
-    function HashHistory (router, base, fallback) {
+    function HashHistory(router, base, fallback) {
       History.call(this, router, base);
       // check history fallback deeplinking
       if (fallback && checkFallback(this.base)) {
@@ -2689,6 +2741,7 @@
         this.listeners.push(setupScroll());
       }
 
+      // 监听回退的函数
       var handleRoutingEvent = function () {
         var current = this$1$1.current;
         if (!ensureSlash()) {
@@ -2703,11 +2756,10 @@
           }
         });
       };
+
+      // 设置监听器，这里是监听回退
       var eventType = supportsPushState ? 'popstate' : 'hashchange';
-      window.addEventListener(
-        eventType,
-        handleRoutingEvent
-      );
+      window.addEventListener(eventType, handleRoutingEvent);
       this.listeners.push(function () {
         window.removeEventListener(eventType, handleRoutingEvent);
       });
@@ -2763,7 +2815,7 @@
     return HashHistory;
   }(History));
 
-  function checkFallback (base) {
+  function checkFallback(base) {
     var location = getLocation(base);
     if (!/^\/#/.test(location)) {
       window.location.replace(cleanPath(base + '/#' + location));
@@ -2771,7 +2823,7 @@
     }
   }
 
-  function ensureSlash () {
+  function ensureSlash() {
     var path = getHash();
     if (path.charAt(0) === '/') {
       return true
@@ -2780,7 +2832,7 @@
     return false
   }
 
-  function getHash () {
+  function getHash() {
     // We can't use window.location.hash here because it's not
     // consistent across browsers - Firefox will pre-decode it!
     var href = window.location.href;
@@ -2793,14 +2845,14 @@
     return href
   }
 
-  function getUrl (path) {
+  function getUrl(path) {
     var href = window.location.href;
     var i = href.indexOf('#');
     var base = i >= 0 ? href.slice(0, i) : href;
     return (base + "#" + path)
   }
 
-  function pushHash (path) {
+  function pushHash(path) {
     if (supportsPushState) {
       pushState(getUrl(path));
     } else {
@@ -2808,7 +2860,7 @@
     }
   }
 
-  function replaceHash (path) {
+  function replaceHash(path) {
     if (supportsPushState) {
       replaceState(getUrl(path));
     } else {
@@ -2898,11 +2950,14 @@
 
 
 
-  var VueRouter = function VueRouter (options) {
+  var VueRouter = function VueRouter(options) {
     if ( options === void 0 ) options = {};
 
     {
-      warn(this instanceof VueRouter, "Router must be called with the new operator.");
+      warn(
+        this instanceof VueRouter,
+        "Router must be called with the new operator."
+      );
     }
     this.app = null;
     this.apps = [];
@@ -2912,6 +2967,7 @@
     this.afterHooks = [];
     this.matcher = createMatcher(options.routes || [], this);
 
+    // 不指定mode 默认是hash模式
     var mode = options.mode || 'hash';
     this.fallback =
       mode === 'history' && !supportsPushState && options.fallback !== false;
@@ -2994,10 +3050,13 @@
           handleScroll(this$1$1, routeOrError, from, false);
         }
       };
+      // transitionTo成功或者失败的回调
       var setupListeners = function (routeOrError) {
+        // 设置监听器
         history.setupListeners();
         handleInitialScroll(routeOrError);
       };
+      // 切换路径
       history.transitionTo(
         history.getCurrentLocation(),
         setupListeners,
@@ -3007,6 +3066,7 @@
 
     history.listen(function (route) {
       this$1$1.apps.forEach(function (app) {
+        // 这里修改会触发set 导致页面更新
         app._route = route;
       });
     });
@@ -3123,7 +3183,10 @@
 
   VueRouter.prototype.addRoutes = function addRoutes (routes) {
     {
-      warn(false, 'router.addRoutes() is deprecated and has been removed in Vue Router 4. Use router.addRoute() instead.');
+      warn(
+        false,
+        'router.addRoutes() is deprecated and has been removed in Vue Router 4. Use router.addRoute() instead.'
+      );
     }
     this.matcher.addRoutes(routes);
     if (this.history.current !== START) {
@@ -3135,7 +3198,7 @@
 
   var VueRouter$1 = VueRouter;
 
-  function registerHook (list, fn) {
+  function registerHook(list, fn) {
     list.push(fn);
     return function () {
       var i = list.indexOf(fn);
@@ -3143,7 +3206,7 @@
     }
   }
 
-  function createHref (base, fullPath, mode) {
+  function createHref(base, fullPath, mode) {
     var path = mode === 'hash' ? '#' + fullPath : fullPath;
     return base ? cleanPath(base + '/' + path) : path
   }
@@ -3162,3 +3225,4 @@
   return VueRouter$1;
 
 }));
+//# sourceMappingURL=vue-router.js.map

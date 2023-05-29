@@ -123,7 +123,10 @@ export class History {
           // because it's triggered by the redirection instead
           // https://github.com/vuejs/vue-router/issues/3225
           // https://github.com/vuejs/vue-router/issues/3331
-          if (!isNavigationFailure(err, NavigationFailureType.redirected) || prev !== START) {
+          if (
+            !isNavigationFailure(err, NavigationFailureType.redirected) ||
+            prev !== START
+          ) {
             this.ready = true
             this.readyErrorCbs.forEach(cb => {
               cb(err)
@@ -137,6 +140,7 @@ export class History {
   confirmTransition (route: Route, onComplete: Function, onAbort?: Function) {
     const current = this.current
     this.pending = route
+    debugger
     const abort = err => {
       // changed after adding errors with
       // https://github.com/vuejs/vue-router/pull/3047 before that change,
@@ -222,7 +226,18 @@ export class History {
         abort(e)
       }
     }
-
+    // 1.导航被触发。
+    // 2.在失活的组件里调用 beforeRouteLeave 守卫。
+    // 3.调用全局的 beforeEach 守卫。
+    // 4.在重用的组件里调用 beforeRouteUpdate 守卫 (2.2+)。
+    // 5.在路由配置里调用 beforeEnter。
+    // 6.解析异步路由组件。
+    // 7.在被激活的组件里调用 beforeRouteEnter。
+    // 8.调用全局的 beforeResolve 守卫 (2.5+)。
+    // 9.导航被确认。
+    // 10.调用全局的 afterEach 钩子。
+    // 11.触发 DOM 更新。
+    // 12.调用 beforeRouteEnter 守卫中传给 next 的回调函数，创建好的组件实例会作为回调函数的参数传入。
     runQueue(queue, iterator, () => {
       // wait until async components are resolved before
       // extracting in-component enter guards
@@ -353,9 +368,7 @@ function bindGuard (guard: NavigationGuard, instance: ?_Vue): ?NavigationGuard {
   }
 }
 
-function extractEnterGuards (
-  activated: Array<RouteRecord>
-): Array<?Function> {
+function extractEnterGuards (activated: Array<RouteRecord>): Array<?Function> {
   return extractGuards(
     activated,
     'beforeRouteEnter',
